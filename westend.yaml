@@ -1,0 +1,4 @@
+endpoint: wss://westend-rpc.polkadot.io
+mock-signature-host: true
+block: ${env.WESTEND_BLOCK_NUMBER}
+db: ./db.sqlite
