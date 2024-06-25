@@ -1,6 +1,6 @@
 {
-  "local": {
-    "wsUrl": "ws://127.0.0.1:49413",
-    "metadata": "local.scale"
+  "wnd": {
+    "chain": "westend2",
+    "metadata": "wnd.scale"
   }
 }
