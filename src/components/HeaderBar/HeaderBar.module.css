@@ -1,0 +1,12 @@
+.header {
+  height: 50px;
+  display: flex;
+  justify-content: space-between;
+  background-color: #e6007a;
+}
+
+.logo {
+  animation: logo-spin infinite 20s linear;
+  height: 100%;
+  pointer-events: none;
+}

@@ -11,15 +11,15 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "solid-devtools": "^0.29.2",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.11",
-    "vite-plugin-solid": "^2.8.2"
+    "solid-devtools": "^0.29.3",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vite-plugin-solid": "^2.10.2"
   },
   "dependencies": {
-    "@polkadot-api/descriptors": "^0.0.1",
-    "polkadot-api": "^0.5.5",
+    "@polkadot-api/descriptors": "file:.papi/descriptors",
+    "polkadot-api": "^0.13.2",
     "rxjs": "^7.8.1",
-    "solid-js": "^1.8.11"
+    "solid-js": "^1.8.20"
   }
 }

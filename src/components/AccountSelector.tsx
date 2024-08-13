@@ -1,28 +1,26 @@
-import { wnd } from '@polkadot-api/descriptors';
-import { TypedApi } from 'polkadot-api';
-import { InjectedExtension, InjectedPolkadotAccount, connectInjectedExtension, getInjectedExtensions } from 'polkadot-api/pjs-signer';
-import { createSignal, type Component, Show, For, createEffect, Setter, Accessor } from 'solid-js';
+import { wnd as descriptors } from '@polkadot-api/descriptors';
+import { InjectedPolkadotAccount, connectInjectedExtension, getInjectedExtensions } from 'polkadot-api/pjs-signer';
+import { createSignal, type Component, Show, For, createEffect } from 'solid-js';
 import { map } from "rxjs";
 import { FormatBalance } from './FormatBalance';
+import { useSelectedAccount, useSelectedExtension } from '../context';
+import { wndAhWsClient } from '../api/clients';
 
-export interface AccountInfoProps {
-  api: TypedApi<typeof wnd>;
-  account: Accessor<InjectedPolkadotAccount | undefined>;
-  setAccount: Setter<InjectedPolkadotAccount | undefined>;
-}
+const api = wndAhWsClient.getTypedApi(descriptors);
 
-export const AccountInfo: Component<AccountInfoProps> = (props) => {
+export const AccountSelector: Component = () => {
+  const [account, setAccount] = useSelectedAccount()!;
   const [extensions, _] = createSignal(getInjectedExtensions());
-  const [selectedExtension, setSelectedExtension] = createSignal<InjectedExtension | undefined>();
+  const [selectedExtension, setSelectedExtension] = useSelectedExtension();
   const [balance, setBalance] = createSignal(0n);
 
   createEffect(() => {
-    if (props.account()) {
-      const subscription = props.api
+    if (account()) {
+      const subscription = api
         .query
         .System
         .Account
-        .watchValue(props.account()!.address, "best")
+        .watchValue(account()!.address, "best")
         .pipe(map(({ data }) => data.free - data.frozen))
         .subscribe(setBalance);
 
@@ -37,7 +35,7 @@ export const AccountInfo: Component<AccountInfoProps> = (props) => {
   };
 
   const onClickAccount = (account: InjectedPolkadotAccount) => {
-    props.setAccount(account);
+    setAccount(account);
   };
 
   return (
@@ -59,11 +57,11 @@ export const AccountInfo: Component<AccountInfoProps> = (props) => {
           }</For>
         </ul>
         <Show
-          when={props.account() !== undefined}
+          when={account() !== undefined}
           fallback={<p>No account selected!</p>}
         >
-          <p>Account: {props.account()!.name ?? props.account()!.address}</p>
-          <FormatBalance balance={balance()} />
+          <p>Account: {account()!.name ?? account()!.address}</p>
+          <FormatBalance label="Balance" balance={balance()} />
         </Show>
       </Show>
     </div>

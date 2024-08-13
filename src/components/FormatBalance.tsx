@@ -2,6 +2,7 @@ import { type Component } from "solid-js";
 
 export interface FormatBalanceProps {
   balance: bigint;
+  label: string;
 }
 
 const ASSET_DECIMALS = 1_000_000_000_000n;
@@ -12,5 +13,5 @@ export const formatBalance = (balance: bigint): number => {
 }
 
 export const FormatBalance: Component<FormatBalanceProps> = (props) => {
-  return <p>Balance: {formatBalance(props.balance)}</p>;
+  return <p>{props.label}: {formatBalance(props.balance)}</p>;
 }

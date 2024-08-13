@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "descriptorPath": ".papi/descriptors",
+  "entries": {
+    "wnd": {
+      "chain": "westend2",
+      "metadata": "wnd.scale"
+    },
+    "wndAh": {
+      "wsUrl": "wss://westend-asset-hub-rpc.polkadot.io",
+      "metadata": "wndAh.scale"
+    }
+  }
+}

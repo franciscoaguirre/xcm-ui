@@ -9,20 +9,13 @@ body {
   text-align: center;
 }
 
-.header {
-  height: 80px;
+.main {
+  height: calc(100vh - 50px);
   display: flex;
-  justify-content: space-between;
-  background-color: purple;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
-
-.logo {
-  animation: logo-spin infinite 20s linear;
-  height: 100%;
-  pointer-events: none;
-}
-
-.main {}
 
 .list {
   list-style: none;
