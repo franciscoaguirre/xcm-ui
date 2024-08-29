@@ -1,11 +1,12 @@
 import styles from "./CrossChainTransfers.module.css";
 import { useSelectedAccount } from "../../context";
-import { Component, createEffect, createSignal, For, Show } from "solid-js"
+import { Component, createSignal, For, Show } from "solid-js"
 import { DryRunButton } from "../DryRunButton";
 import { Select } from "../Select";
-import { ChainId, chainIdsToNames, chains, possibleDestinations } from "../../api/chains";
+import { chains } from "../../api/chains";
 import { useBalance } from "../../api/common";
 import { FormatBalance } from "../FormatBalance";
+import { ChainId } from "@/api/chains/types";
 
 export const CrossChainTransfers: Component = () => {
   const [selectedAccount, _] = useSelectedAccount()!;
@@ -16,11 +17,11 @@ export const CrossChainTransfers: Component = () => {
 
   const onChangeSender = (chainId: ChainId) => {
     setSender(chainId);
-    setDestination(possibleDestinations[chainId][0]);
+    setDestination(chains.get(chainId)!.possibleDestinations[0].slug);
   };
 
   const fromChains = [...chains.keys()]
-  const chainToSelectorLabel = (chain: ChainId) => chainIdsToNames[chain];
+  const chainToSelectorLabel = (chain: ChainId) => chains.get(chain)!.name;
 
   return (
     <Show when={selectedAccount() !== undefined}>
@@ -34,8 +35,8 @@ export const CrossChainTransfers: Component = () => {
         </Select>
         <FormatBalance label="Balance" balance={senderBalance() ?? 0n} />
         <Select label="To" setValue={(value) => setDestination(value)}>
-          <For each={possibleDestinations[sender()]}>
-            {(chainId) => (
+          <For each={chains.get(sender())!.possibleDestinations}>
+            {({ slug: chainId }) => (
               <option value={chainId}>{chainToSelectorLabel(chainId)}</option>
             )}
           </For>

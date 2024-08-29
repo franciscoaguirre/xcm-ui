@@ -5,14 +5,14 @@ import {
   WestendRuntimeOriginCaller,
   XcmV3MultiassetFungibility,
   XcmV3WeightLimit,
-  XcmV3Junctions,
   XcmVersionedAssets,
   wnd as descriptors,
 } from '@polkadot-api/descriptors';
 import { FormatBalance } from './FormatBalance';
 import { wndWsClient } from '../api/clients';
 import { useSelectedAccount } from '../context';
-import { ChainId, chainToNativeAsset, senderToDestination } from '../api/chains';
+import { ChainId } from '../api/chains/types';
+import { chains } from '../api/chains';
 
 const api = wndWsClient.getTypedApi(descriptors);
 
@@ -30,11 +30,11 @@ export const DryRunButton: Component<DryRunButtonProps> = (props) => {
 
   const dryRun = async () => {
     const call = api.tx.XcmPallet.transfer_assets({
-      dest: senderToDestination[props.sender()][props.destination()],
+      dest: chains.get(props.sender())!.possibleDestinations.find((destination) => destination.slug === props.destination())!.location,
       beneficiary: { type: "V4", value: { parents: 0, interior: { type: "X1" as const, value: [{ type: "AccountId32" as const, value: { network: undefined, id: Binary.fromBytes(encodeAccount(account()!.address)) } }] } } },
       weight_limit: XcmV3WeightLimit.Unlimited(),
       assets: XcmVersionedAssets.V4([{
-        id: chainToNativeAsset[props.sender()],
+        id: chains.get(props.sender())!.nativeAssetId,
         fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n) }
       ]),
       fee_asset_item: 0,

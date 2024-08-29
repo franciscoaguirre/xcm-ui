@@ -3,7 +3,7 @@ import { SS58String, TypedApi } from "polkadot-api";
 import { map } from "rxjs";
 import { ChainId, chains } from "./chains";
 import { useSelectedAccount } from "../context";
-import { Accessor, createEffect, createSignal, onMount } from "solid-js";
+import { Accessor, createEffect, createSignal } from "solid-js";
 
 type GenericApi = TypedApi<typeof wndAh>;
 
@@ -30,7 +30,7 @@ export const useBalance = (chainId: Accessor<ChainId>) => {
     setBalance(0n);
 
     if (account()) {
-      const subscription = watchAccountNativeFreeBalance(chains.get(chainId()))(account()!.address).subscribe(setBalance);
+      const subscription = watchAccountNativeFreeBalance(chains.get(chainId())!.api)(account()!.address).subscribe(setBalance);
       return () => {
         subscription.unsubscribe();
       }
