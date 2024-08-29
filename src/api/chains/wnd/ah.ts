@@ -1,11 +1,11 @@
 import { XcmV3Junctions, XcmVersionedLocation } from "@polkadot-api/descriptors";
-import { wndAhApi } from "../../clients/wndAh";
+import { wndAhApi, wndAhWsClient } from "../../clients/wndAh";
 import { Chain } from "../types";
 
 const wndAh: Chain = {
   slug: "wndAh",
   name: "Westend Asset Hub",
-  api: wndAhApi,
+  client: wndAhWsClient,
   possibleDestinations: [
     {
       slug: "wnd",
@@ -23,6 +23,8 @@ const wndAh: Chain = {
     parents: 1,
     interior: XcmV3Junctions.Here(),
   },
+  transferCall: (...args) =>
+    wndAhApi.tx.PolkadotXcm.transfer_assets(...args),
 }
 
 export default [wndAh];

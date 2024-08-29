@@ -1,11 +1,11 @@
 import { XcmV3Junctions, XcmVersionedLocation } from "@polkadot-api/descriptors";
-import { wndApi } from "../../clients/wnd";
+import { wndApi, wndWsClient } from "../../clients/wnd";
 import { Chain } from "../types";
 
 const wnd: Chain = {
   slug: "wnd",
   name: "Westend",
-  api: wndApi,
+  client: wndWsClient,
   possibleDestinations: [
     {
       slug: "wndAh",
@@ -23,6 +23,8 @@ const wnd: Chain = {
     parents: 0,
     interior: XcmV3Junctions.Here(),
   },
+  transferCall: (...args) =>
+    wndApi.tx.XcmPallet.transfer_assets(...args),
 }
 
 export default [wnd];

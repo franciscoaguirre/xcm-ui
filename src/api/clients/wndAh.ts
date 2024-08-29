@@ -12,6 +12,6 @@ const smoldotParachain = Promise.all([
   smoldot.addChain({ chainSpec, potentialRelayChains: [relayChain] })
 );
 
-export const wndAhClient = createClient(getSmProvider(smoldotParachain));
+// export const wndAhClient = createClient(getSmProvider(smoldotParachain));
 export const wndAhWsClient = createClient(getWsProvider("wss://westend-asset-hub-rpc.polkadot.io"));
 export const wndAhApi = wndAhWsClient.getTypedApi(descriptors);

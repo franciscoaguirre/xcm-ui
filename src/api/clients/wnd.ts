@@ -8,6 +8,6 @@ export const wndRelayChain = import("polkadot-api/chains/westend2").then(({ chai
   smoldot.addChain({ chainSpec })
 );
 
-export const wndClient = createClient(getSmProvider(wndRelayChain));
+// export const wndClient = createClient(getSmProvider(wndRelayChain));
 export const wndWsClient = createClient(getWsProvider("wss://westend-rpc.polkadot.io"));
 export const wndApi = wndWsClient.getTypedApi(descriptors);

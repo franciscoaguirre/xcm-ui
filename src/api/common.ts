@@ -1,7 +1,8 @@
-import { wndAh } from "@polkadot-api/descriptors";
+import { wnd, wndAh } from "@polkadot-api/descriptors";
 import { SS58String, TypedApi } from "polkadot-api";
 import { map } from "rxjs";
-import { ChainId, chains } from "./chains";
+import { chains } from "./chains";
+import type { ChainId } from "./chains/types";
 import { useSelectedAccount } from "../context";
 import { Accessor, createEffect, createSignal } from "solid-js";
 
@@ -30,7 +31,7 @@ export const useBalance = (chainId: Accessor<ChainId>) => {
     setBalance(0n);
 
     if (account()) {
-      const subscription = watchAccountNativeFreeBalance(chains.get(chainId())!.api)(account()!.address).subscribe(setBalance);
+      const subscription = watchAccountNativeFreeBalance(chains.get(chainId())!.client.getTypedApi(wnd))(account()!.address).subscribe(setBalance);
       return () => {
         subscription.unsubscribe();
       }

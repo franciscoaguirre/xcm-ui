@@ -3,18 +3,15 @@ import { Accessor, createSignal, type Component } from 'solid-js';
 import {
   DispatchRawOrigin,
   WestendRuntimeOriginCaller,
+  wnd,
   XcmV3MultiassetFungibility,
   XcmV3WeightLimit,
   XcmVersionedAssets,
-  wnd as descriptors,
 } from '@polkadot-api/descriptors';
 import { FormatBalance } from './FormatBalance';
-import { wndWsClient } from '../api/clients';
 import { useSelectedAccount } from '../context';
 import { ChainId } from '../api/chains/types';
 import { chains } from '../api/chains';
-
-const api = wndWsClient.getTypedApi(descriptors);
 
 const encodeAccount = AccountId().enc;
 
@@ -27,9 +24,10 @@ export const DryRunButton: Component<DryRunButtonProps> = (props) => {
   const [executionFees, setExecutionFees] = createSignal(0n);
   const [deliveryFees, setDeliveryFees] = createSignal(0n);
   const [account, _] = useSelectedAccount()!;
+  const api = chains.get(props.sender())!.client.getTypedApi(wnd);
 
   const dryRun = async () => {
-    const call = api.tx.XcmPallet.transfer_assets({
+    const call = chains.get(props.sender())!.transferCall({
       dest: chains.get(props.sender())!.possibleDestinations.find((destination) => destination.slug === props.destination())!.location,
       beneficiary: { type: "V4", value: { parents: 0, interior: { type: "X1" as const, value: [{ type: "AccountId32" as const, value: { network: undefined, id: Binary.fromBytes(encodeAccount(account()!.address)) } }] } } },
       weight_limit: XcmV3WeightLimit.Unlimited(),

@@ -1,2 +1,2 @@
-export { wndClient, wndWsClient } from "./wnd";
-export { wndAhClient, wndAhWsClient } from "./wndAh";
+export { wndWsClient } from "./wnd";
+export { wndAhWsClient } from "./wndAh";
