@@ -1,16 +1,17 @@
 import { createSignal, For } from "solid-js"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuItem } from "./ui/sidebar"
+import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 
 export const AppSidebar = () => {
-
     const [chain, setChain] = createSignal("relaychain")
-    const [xcmVersion, setXcmVersion] = createSignal(5)
+    const [xcmVersion, setXcmVersion] = createSignal('5')
 
-    const instructions: Record<number, string[]> = {
+    const instructions: Record<'V3' | 'V4' | 'V5', string[]> = {
         // TODO: Add all instructions
-        3: ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
-        4: ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
-        5: ['WithdrawAsset', 'InitiateTransfer']
+        'V3': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
+        'V4': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
+        'V5': ['WithdrawAsset', 'InitiateTransfer']
     }
 
     const templates: Record<string, string[]> = {
@@ -23,7 +24,20 @@ export const AppSidebar = () => {
 
     return (
         <Sidebar>
-            <SidebarHeader />
+            <SidebarHeader>
+            <Select
+                value={xcmVersion()}
+                onChange={setXcmVersion}
+                options={["V3", "V4", "V5"]}
+                placeholder="Select the XCM Version"
+                itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+            >
+                <SelectTrigger aria-label="XCM Version" class="w-[180px]">
+                    <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
+                </SelectTrigger>
+                <SelectContent />
+            </Select>
+            </ SidebarHeader>
             <SidebarContent>
                 <SidebarGroup>
                     <SidebarGroupLabel class="mb-1">
@@ -50,7 +64,21 @@ export const AppSidebar = () => {
                     </SidebarGroupContent>
                 </ SidebarGroup>    
             </ SidebarContent>
-            <SidebarFooter />
+            <SidebarFooter>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger>
+                                Documentation
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent class="w-full">
+                                <DropdownMenuLabel><span>Wiki Docs</span></DropdownMenuLabel>
+                                <DropdownMenuLabel><span>XCM Spec</span></DropdownMenuLabel>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </SidebarMenuItem>
+                </ SidebarMenu>
+            </ SidebarFooter>
         </ Sidebar>
     )
 }
