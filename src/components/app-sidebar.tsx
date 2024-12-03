@@ -1,5 +1,5 @@
 import { createSignal, For } from "solid-js"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu } from "./ui/sidebar"
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuItem } from "./ui/sidebar"
 
 export const AppSidebar = () => {
 
@@ -32,7 +32,7 @@ export const AppSidebar = () => {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             <For each={templates[chain()]} fallback={<div class="py-2 bg-red-200 rounded">No templates were found</div>}>
-                                {(item) => <div class="py-2 hover:bg-gray-100 hover:bg-opacity-50 rounded">{item}</div>}
+                                {(item) => <SidebarMenuItem class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer">{item}</SidebarMenuItem>}
                             </For>
                         </SidebarMenu>
                     </SidebarGroupContent>
@@ -44,7 +44,7 @@ export const AppSidebar = () => {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             <For each={instructions[xcmVersion()]} fallback={<div class="py-2 bg-red-200 rounded">No instructions were found</div>}>
-                                {(item) => <div class="py-2 hover:bg-gray-100 hover:bg-opacity-50 rounded">{item}</div>}
+                                {(item) => <SidebarMenuItem class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer"><span>{item}</span></SidebarMenuItem>}
                             </For>
                         </SidebarMenu>
                     </SidebarGroupContent>
