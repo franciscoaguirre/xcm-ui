@@ -10,7 +10,7 @@ export const AppSidebar = () => {
         // TODO: Add all instructions
         3: ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
         4: ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
-        5: ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport']
+        5: ['WithdrawAsset', 'InitiateTransfer']
     }
 
     const templates: Record<string, string[]> = {
