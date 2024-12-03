@@ -3,9 +3,11 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 
+type XcmVersion = `V${3 | 4 | 5}`;
+
 export const AppSidebar = () => {
     const [chain, setChain] = createSignal("relaychain")
-    const [xcmVersion, setXcmVersion] = createSignal('5')
+    const [xcmVersion, setXcmVersion] = createSignal<XcmVersion>('V5')
 
     const instructions: Record<'V3' | 'V4' | 'V5', string[]> = {
         // TODO: Add all instructions
