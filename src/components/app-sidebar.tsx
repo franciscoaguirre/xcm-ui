@@ -2,7 +2,7 @@ import { createSignal, For, Show } from "solid-js"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuItem } from "./ui/sidebar"
 import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
-import { appendInstruction, chainName, setTransferType } from "./chain-info";
+import { appendInstruction, chainName, setAppendedInstructionAsString, setTransferType } from "./chain-info";
 import { Separator } from "./ui/separator";
 
 type XcmVersion = `V${3 | 4 | 5}`;
@@ -11,7 +11,7 @@ export const [chain, setChain] = createSignal("westendah")
 export const [xcmVersion, setXcmVersion] = createSignal<XcmVersion>('V5')
 
 export const AppSidebar = () => {
-    const instructions: Record<'V3' | 'V4' | 'V5', string[]> = {
+    const instructions: Record<XcmVersion, string[]> = {
         // TODO: Add all instructions
         'V3': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport', 'DepositAsset', 'Transact'],
         'V4': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport', 'DepositAsset', 'Transact'],
@@ -62,7 +62,10 @@ export const AppSidebar = () => {
                 </SidebarGroupLabel>
                 <Select
                     value={xcmVersion()}
-                    onChange={setXcmVersion}
+                    onChange={(val) => {
+                        setXcmVersion(val as XcmVersion)
+                        setAppendedInstructionAsString([])
+                    }}
                     options={["V3", "V4", "V5"]}
                     placeholder="Select the XCM Version"
                     itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}

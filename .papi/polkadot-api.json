@@ -13,6 +13,10 @@
     "wndah": {
       "chain": "westend2_asset_hub",
       "metadata": ".papi/metadata/wndah.scale"
+    },
+    "pah": {
+      "chain": "paseo_asset_hub",
+      "metadata": ".papi/metadata/pah.scale"
     }
   }
 }

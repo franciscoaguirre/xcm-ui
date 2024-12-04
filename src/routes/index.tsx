@@ -8,7 +8,7 @@ export default function Home() {
       <SidebarProvider>
         <AppSidebar />
           <SidebarTrigger />
-          <main class="w-full">
+          <main class="w-full flex">
             <ChainInfo />
           </main>
       </SidebarProvider>
