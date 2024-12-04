@@ -2,6 +2,7 @@ import { createSignal, For } from "solid-js"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuItem } from "./ui/sidebar"
 import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
+import { appendInstruction } from "./chain-info";
 
 type XcmVersion = `V${3 | 4 | 5}`;
 
@@ -27,18 +28,24 @@ export const AppSidebar = () => {
     return (
         <Sidebar>
             <SidebarHeader>
-            <Select
-                value={xcmVersion()}
-                onChange={setXcmVersion}
-                options={["V3", "V4", "V5"]}
-                placeholder="Select the XCM Version"
-                itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
-            >
-                <SelectTrigger aria-label="XCM Version" class="w-[180px]">
-                    <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
-                </SelectTrigger>
-                <SelectContent />
-            </Select>
+                <SidebarGroupLabel class="text-gray-500 mx-auto font-light">
+                    Currently connected to Polkadot
+                </SidebarGroupLabel>
+                <SidebarGroupLabel class="-mb-2 -mt-1">
+                    XCM Version
+                </SidebarGroupLabel>
+                <Select
+                    value={xcmVersion()}
+                    onChange={setXcmVersion}
+                    options={["V3", "V4", "V5"]}
+                    placeholder="Select the XCM Version"
+                    itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+                >
+                    <SelectTrigger aria-label="XCM Version">
+                        <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent />
+                </Select>
             </ SidebarHeader>
             <SidebarContent>
                 <SidebarGroup>
@@ -60,7 +67,7 @@ export const AppSidebar = () => {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             <For each={instructions[xcmVersion()]} fallback={<div class="py-2 bg-red-200 rounded">No instructions were found</div>}>
-                                {(item) => <SidebarMenuItem class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer"><span>{item}</span></SidebarMenuItem>}
+                                {(item) => <SidebarMenuItem onclick={() => appendInstruction(item)} class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer"><span>{item}</span></SidebarMenuItem>}
                             </For>
                         </SidebarMenu>
                     </SidebarGroupContent>
@@ -73,9 +80,9 @@ export const AppSidebar = () => {
                             <DropdownMenuTrigger>
                                 Documentation
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent class="w-full">
-                                <DropdownMenuLabel><span>Wiki Docs</span></DropdownMenuLabel>
-                                <DropdownMenuLabel><span>XCM Spec</span></DropdownMenuLabel>
+                            <DropdownMenuContent>
+                                <DropdownMenuLabel><button>Wiki Docs</button></DropdownMenuLabel>
+                                <DropdownMenuLabel><button>XCM Spec</button></DropdownMenuLabel>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </SidebarMenuItem>
