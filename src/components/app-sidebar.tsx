@@ -1,36 +1,62 @@
-import { createSignal, For } from "solid-js"
+import { createSignal, For, Show } from "solid-js"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuItem } from "./ui/sidebar"
 import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
-import { appendInstruction } from "./chain-info";
+import { appendInstruction, chainName, setTransferType } from "./chain-info";
+import { Separator } from "./ui/separator";
 
 type XcmVersion = `V${3 | 4 | 5}`;
 
-export const AppSidebar = () => {
-    const [chain, setChain] = createSignal("relaychain")
-    const [xcmVersion, setXcmVersion] = createSignal<XcmVersion>('V5')
+export const [chain, setChain] = createSignal("westendah")
+export const [xcmVersion, setXcmVersion] = createSignal<XcmVersion>('V5')
 
+export const AppSidebar = () => {
     const instructions: Record<'V3' | 'V4' | 'V5', string[]> = {
         // TODO: Add all instructions
-        'V3': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
-        'V4': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
-        'V5': ['WithdrawAsset', 'InitiateTransfer']
+        'V3': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport', 'DepositAsset', 'Transact'],
+        'V4': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport', 'DepositAsset', 'Transact'],
+        'V5': ['WithdrawAsset', 'InitiateTransfer', 'DepositAsset', 'Transact']
     }
 
-    const templates: Record<string, string[]> = {
-        relaychain: ['Teleport', 'Reserve-backed transfer'],
-        assethub: ['Teleport DOT', 'Reserve-backed transfer'],
+    const useCases: Record<string, string[]> = {
+        polkadotrc: ['Teleport and Deposit', 'Teleport and Transact', "Reserve", "Close XCM channel"],
+        poladkotah: ['Teleport DOT', 'Reserve-backed transfer'],
+        westendrc: [],
+        westendah: ['Teleport and Deposit', 'Teleport and Transact', "Reserve", "Close XCM channel"],
         hydration: [],
         moonbeam: [],
         // etc
     }
 
+    const useCase: Record<XcmVersion, Record<string, string[]>> = {
+        "V3": { 
+            "Teleport and Deposit": ["WithdrawAsset", "InitiateTeleport", "DepositAsset"],
+            "Teleport and Transact": ["WithdrawAsset", "InitiateTeleport", "Transact"],
+            "Reserve": [],
+            "Close XCM channel": []
+        },
+        "V4": { 
+            "Teleport and Deposit": ["WithdrawAsset", "InitiateTeleport", "DepositAsset"],
+            "Teleport and Transact": ["WithdrawAsset", "InitiateTeleport", "Transact"],
+            "Reserve": [],
+            "Close XCM channel": []
+        },
+        "V5": { 
+            "Teleport and Deposit": ["WithdrawAsset", "InitiateTransfer", "DepositAsset"],
+            "Teleport and Transact": ["WithdrawAsset", "InitiateTransfer", "Transact"],
+            "Reserve": [],
+            "Close XCM channel": []
+        },
+    }
+
     return (
         <Sidebar>
             <SidebarHeader>
-                <SidebarGroupLabel class="text-gray-500 mx-auto font-light">
-                    Currently connected to Polkadot
-                </SidebarGroupLabel>
+                {/* <Show when={chainName()} fallback={<div>Loading...</div>} keyed>
+                    <SidebarGroupLabel class="text-gray-500 mx-auto font-extralight text-[0.65rem]">
+                        Currently connected to {chainName()}
+                    </SidebarGroupLabel>
+                </Show> */}
                 <SidebarGroupLabel class="-mb-2 -mt-1">
                     XCM Version
                 </SidebarGroupLabel>
@@ -50,16 +76,30 @@ export const AppSidebar = () => {
             <SidebarContent>
                 <SidebarGroup>
                     <SidebarGroupLabel class="mb-1">
-                        Templates
+                        Use cases
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
-                            <For each={templates[chain()]} fallback={<div class="py-2 bg-red-200 rounded">No templates were found</div>}>
-                                {(item) => <SidebarMenuItem class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer">{item}</SidebarMenuItem>}
+                            <For 
+                                each={useCases[chain()]} 
+                                fallback={<div class="py-2 bg-red-200 rounded">No use cases were found</div>}
+                            >
+                                {(item) => <SidebarMenuItem onclick={() => {
+                                    useCase[xcmVersion()][item].forEach((instruction) => {
+                                        if (item.includes("Teleport")) {
+                                            setTransferType("Teleport")
+                                        } else if (item.includes("Reserve")) {
+                                            setTransferType("Reserve")
+                                        }
+                                        appendInstruction(instruction)
+                                    })
+                                }} 
+                                class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer">{item}</SidebarMenuItem>}
                             </For>
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </ SidebarGroup>
+                <Separator/>
                 <SidebarGroup>
                     <SidebarGroupLabel class="mb-1">
                         Instructions

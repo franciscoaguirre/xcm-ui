@@ -9,6 +9,10 @@
     "ksm": {
       "chain": "ksmcc3",
       "metadata": ".papi/metadata/ksm.scale"
+    },
+    "wndah": {
+      "chain": "westend2_asset_hub",
+      "metadata": ".papi/metadata/wndah.scale"
     }
   }
 }
