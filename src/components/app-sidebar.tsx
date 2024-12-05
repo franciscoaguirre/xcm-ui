@@ -2,55 +2,76 @@ import { createSignal, For } from "solid-js"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuItem } from "./ui/sidebar"
 import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
+import { appendItem, PreItem, SuperInstruction, v5SuperInstructions } from "./chain-info";
+import { Separator } from "./ui/separator";
+
+type XcmVersion = `V${3 | 4 | 5}`;
+
+export const [chain, setChain] = createSignal("westendah")
+export const [xcmVersion, setXcmVersion] = createSignal<XcmVersion>('V5')
 
 export const AppSidebar = () => {
-    const [chain, setChain] = createSignal("relaychain")
-    const [xcmVersion, setXcmVersion] = createSignal('5')
-
-    const instructions: Record<'V3' | 'V4' | 'V5', string[]> = {
+    const instructions: Record<XcmVersion, PreItem[]> = {
         // TODO: Add all instructions
-        'V3': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
-        'V4': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport'],
-        'V5': ['WithdrawAsset', 'InitiateTransfer']
+        // 'V3': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport', 'DepositAsset', 'Transact'],
+        'V3': [],
+        'V4': ['WithdrawAsset'],
+        // 'V5': [],
+        'V5': ['WithdrawAsset', 'InitiateTransfer', 'DepositAsset', 'Transact', 'ReportError']
     }
 
-    const templates: Record<string, string[]> = {
-        relaychain: ['Teleport', 'Reserve-backed transfer'],
-        assethub: ['Teleport DOT', 'Reserve-backed transfer'],
-        hydration: [],
-        moonbeam: [],
-        // etc
+    const useCases: Record<XcmVersion, SuperInstruction[]> = {
+        "V3": [],
+        "V4": [],
+        "V5": v5SuperInstructions,
     }
 
     return (
         <Sidebar>
             <SidebarHeader>
-            <Select
-                value={xcmVersion()}
-                onChange={setXcmVersion}
-                options={["V3", "V4", "V5"]}
-                placeholder="Select the XCM Version"
-                itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
-            >
-                <SelectTrigger aria-label="XCM Version" class="w-[180px]">
-                    <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
-                </SelectTrigger>
-                <SelectContent />
-            </Select>
+                {/* <Show when={chainName()} fallback={<div>Loading...</div>} keyed>
+                    <SidebarGroupLabel class="text-gray-500 mx-auto font-extralight text-[0.65rem]">
+                        Currently connected to {chainName()}
+                    </SidebarGroupLabel>
+                </Show> */}
+                <SidebarGroupLabel class="-mb-2 -mt-1">
+                    XCM Version
+                </SidebarGroupLabel>
+                <Select
+                    value={xcmVersion()}
+                    onChange={(val) => {
+                        setXcmVersion(val as XcmVersion)
+                    }}
+                    options={["V3", "V4", "V5"]}
+                    placeholder="Select the XCM Version"
+                    itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+                >
+                    <SelectTrigger aria-label="XCM Version">
+                        <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent />
+                </Select>
             </ SidebarHeader>
             <SidebarContent>
                 <SidebarGroup>
                     <SidebarGroupLabel class="mb-1">
-                        Templates
+                        Use cases
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
-                            <For each={templates[chain()]} fallback={<div class="py-2 bg-red-200 rounded">No templates were found</div>}>
-                                {(item) => <SidebarMenuItem class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer">{item}</SidebarMenuItem>}
+                            <For 
+                                each={useCases[xcmVersion()]} 
+                                fallback={<div class="py-2 bg-red-200 rounded">No use cases were found</div>}
+                            >
+                                {(instruction) => <SidebarMenuItem onclick={() => {
+                                    appendItem(instruction)
+                                }}
+                                class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer">{instruction}</SidebarMenuItem>}
                             </For>
                         </SidebarMenu>
                     </SidebarGroupContent>
                 </ SidebarGroup>
+                <Separator/>
                 <SidebarGroup>
                     <SidebarGroupLabel class="mb-1">
                         Instructions
@@ -58,7 +79,14 @@ export const AppSidebar = () => {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             <For each={instructions[xcmVersion()]} fallback={<div class="py-2 bg-red-200 rounded">No instructions were found</div>}>
-                                {(item) => <SidebarMenuItem class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer"><span>{item}</span></SidebarMenuItem>}
+                                {(item) => <
+                                    SidebarMenuItem
+                                        onclick={() => appendItem(item)}
+                                        class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer"
+                                    >
+                                        <span>{item}</span>
+                                    </SidebarMenuItem>
+                                }
                             </For>
                         </SidebarMenu>
                     </SidebarGroupContent>
@@ -71,9 +99,9 @@ export const AppSidebar = () => {
                             <DropdownMenuTrigger>
                                 Documentation
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent class="w-full">
-                                <DropdownMenuLabel><span>Wiki Docs</span></DropdownMenuLabel>
-                                <DropdownMenuLabel><span>XCM Spec</span></DropdownMenuLabel>
+                            <DropdownMenuContent>
+                                <DropdownMenuLabel><button>Wiki Docs</button></DropdownMenuLabel>
+                                <DropdownMenuLabel><button>XCM Spec</button></DropdownMenuLabel>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </SidebarMenuItem>
