@@ -1,8 +1,8 @@
-import { createSignal, For, Show } from "solid-js"
+import { createSignal, For } from "solid-js"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuItem } from "./ui/sidebar"
 import { DropdownMenu, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
-import { appendInstruction, chainName, setAppendedInstructionAsString, setTransferType } from "./chain-info";
+import { appendItem, PreItem, SuperInstruction, v5SuperInstructions } from "./chain-info";
 import { Separator } from "./ui/separator";
 
 type XcmVersion = `V${3 | 4 | 5}`;
@@ -11,42 +11,19 @@ export const [chain, setChain] = createSignal("westendah")
 export const [xcmVersion, setXcmVersion] = createSignal<XcmVersion>('V5')
 
 export const AppSidebar = () => {
-    const instructions: Record<XcmVersion, string[]> = {
+    const instructions: Record<XcmVersion, PreItem[]> = {
         // TODO: Add all instructions
-        'V3': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport', 'DepositAsset', 'Transact'],
-        'V4': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport', 'DepositAsset', 'Transact'],
-        'V5': ['WithdrawAsset', 'InitiateTransfer', 'DepositAsset', 'Transact']
+        // 'V3': ['WithdrawAsset', 'InitiateReserveWithdraw', 'InitiateTeleport', 'DepositAsset', 'Transact'],
+        'V3': [],
+        'V4': ['WithdrawAsset'],
+        // 'V5': [],
+        'V5': ['WithdrawAsset', 'InitiateTransfer', 'DepositAsset', 'Transact', 'ReportError']
     }
 
-    const useCases: Record<string, string[]> = {
-        polkadotrc: ['Teleport and Deposit', 'Teleport and Transact', "Reserve", "Close XCM channel"],
-        poladkotah: ['Teleport DOT', 'Reserve-backed transfer'],
-        westendrc: [],
-        westendah: ['Teleport and Deposit', 'Teleport and Transact', "Reserve", "Close XCM channel"],
-        hydration: [],
-        moonbeam: [],
-        // etc
-    }
-
-    const useCase: Record<XcmVersion, Record<string, string[]>> = {
-        "V3": { 
-            "Teleport and Deposit": ["WithdrawAsset", "InitiateTeleport", "DepositAsset"],
-            "Teleport and Transact": ["WithdrawAsset", "InitiateTeleport", "Transact"],
-            "Reserve": [],
-            "Close XCM channel": []
-        },
-        "V4": { 
-            "Teleport and Deposit": ["WithdrawAsset", "InitiateTeleport", "DepositAsset"],
-            "Teleport and Transact": ["WithdrawAsset", "InitiateTeleport", "Transact"],
-            "Reserve": [],
-            "Close XCM channel": []
-        },
-        "V5": { 
-            "Teleport and Deposit": ["WithdrawAsset", "InitiateTransfer", "DepositAsset"],
-            "Teleport and Transact": ["WithdrawAsset", "InitiateTransfer", "Transact"],
-            "Reserve": [],
-            "Close XCM channel": []
-        },
+    const useCases: Record<XcmVersion, SuperInstruction[]> = {
+        "V3": [],
+        "V4": [],
+        "V5": v5SuperInstructions,
     }
 
     return (
@@ -64,7 +41,6 @@ export const AppSidebar = () => {
                     value={xcmVersion()}
                     onChange={(val) => {
                         setXcmVersion(val as XcmVersion)
-                        setAppendedInstructionAsString([])
                     }}
                     options={["V3", "V4", "V5"]}
                     placeholder="Select the XCM Version"
@@ -84,20 +60,13 @@ export const AppSidebar = () => {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             <For 
-                                each={useCases[chain()]} 
+                                each={useCases[xcmVersion()]} 
                                 fallback={<div class="py-2 bg-red-200 rounded">No use cases were found</div>}
                             >
-                                {(item) => <SidebarMenuItem onclick={() => {
-                                    useCase[xcmVersion()][item].forEach((instruction) => {
-                                        if (item.includes("Teleport")) {
-                                            setTransferType("Teleport")
-                                        } else if (item.includes("Reserve")) {
-                                            setTransferType("Reserve")
-                                        }
-                                        appendInstruction(instruction)
-                                    })
-                                }} 
-                                class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer">{item}</SidebarMenuItem>}
+                                {(instruction) => <SidebarMenuItem onclick={() => {
+                                    appendItem(instruction)
+                                }}
+                                class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer">{instruction}</SidebarMenuItem>}
                             </For>
                         </SidebarMenu>
                     </SidebarGroupContent>
@@ -110,7 +79,14 @@ export const AppSidebar = () => {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             <For each={instructions[xcmVersion()]} fallback={<div class="py-2 bg-red-200 rounded">No instructions were found</div>}>
-                                {(item) => <SidebarMenuItem onclick={() => appendInstruction(item)} class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer"><span>{item}</span></SidebarMenuItem>}
+                                {(item) => <
+                                    SidebarMenuItem
+                                        onclick={() => appendItem(item)}
+                                        class="py-2 rounded hover:bg-gray-100 hover:bg-opacity-50 hover:cursor-pointer"
+                                    >
+                                        <span>{item}</span>
+                                    </SidebarMenuItem>
+                                }
                             </For>
                         </SidebarMenu>
                     </SidebarGroupContent>

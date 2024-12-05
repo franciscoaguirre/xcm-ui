@@ -1,7 +1,7 @@
-import { pah, wndah, XcmVersionedXcm, XcmVersionedLocation, XcmV2MultilocationJunctions, XcmV4Instruction, XcmV3Junctions, XcmV3MultiassetMultiAssetFilter, XcmV3MultiassetWildMultiAsset, XcmV4AssetWildAsset, XcmV4AssetAssetFilter, PolkadotRuntimeOriginCaller, DispatchRawOrigin, XcmV3MultiassetFungibility, XcmV3WeightLimit, XcmV3Junction } from "@polkadot-api/descriptors"
+import { XcmV4Instruction, XcmV3Junctions, DispatchRawOrigin, XcmV3MultiassetFungibility, XcmV3Junction, XcmV3WeightLimit, XcmV2OriginKind, wndAh, wnd } from "@polkadot-api/descriptors"
 import { getWsProvider } from "polkadot-api/ws-provider/web";
-import { Binary, createClient, Enum, PolkadotSigner, Transaction, type PolkadotClient } from "polkadot-api";
-import { createSignal,  createResource, Show, For } from "solid-js";
+import { Binary, createClient, Enum, type PolkadotClient } from "polkadot-api";
+import { createSignal,  createResource, Show, For, Component, createEffect } from "solid-js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { TextField, TextFieldInput, TextFieldLabel } from "./ui/text-field";
 import { Card } from "./ui/card";
@@ -11,16 +11,272 @@ import {
     InjectedExtension,
     InjectedPolkadotAccount,
   } from "polkadot-api/pjs-signer"
+import { createStore } from "solid-js/store";
+import { NumberField, NumberFieldInput, NumberFieldLabel } from "./ui/number-field";
 
-type Instruction = 'WithdrawAsset' | 'InitiateTransfer';
-type V4Instruction = 'WithdrawAsset' | "InitiateReserveWithdraw" | 'InitiateTeleport';
+type AssetId = 'WND' | 'USDT' | 'USDC';
+type Asset = { id: AssetId, amount: bigint };
+type Location = { parents: number, interior: XcmV3Junctions };
+type Chain = 'Relay' | 'Hydration' | 'Coretime';
 
-export const [currentInstructions, setAppendedInstruction] = createSignal<Instruction[]>([]);
-export const [currentInstructionsAsString, setAppendedInstructionAsString] = createSignal<string[]>([]);
-export const [transferType, setTransferType] = createSignal('');
+export type PreItem = Instruction | SuperInstruction;
+type Instruction = 'WithdrawAsset' | 'InitiateTransfer' | 'DepositAsset' | 'Transact' | 'ReportError';
+export type SuperInstruction = typeof v5SuperInstructions[number];
+export const superInstructions = ['RemoteTransact' as const];
+export const v5SuperInstructions = ['TeleportTransact' as const];
+type Item = { type: 'WithdrawAsset', value: Asset[] }
+    | { type: 'TeleportTransact', value: { destination: Chain, assets: Asset[], call: string } };
+type Action = ['send', Chain] | 'execute';
 
-const [signer, setSigner] = createSignal<PolkadotSigner | undefined>(undefined);
-const [encodedData, setEncodedData] = createSignal('');
+const provider = getWsProvider("ws://localhost:8000");
+const client: PolkadotClient = createClient(provider);
+const wndAhApi = client.getTypedApi(wndAh);
+
+const [store, setStore] = createStore<Item[]>([]);
+const [whatever, setWhatever] = createSignal(0);
+
+const stringify = (obj: any): string => JSON.stringify(obj, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2);
+
+createEffect(() => {
+    const _ = whatever();
+
+    console.log(stringify(store));
+});
+
+export const appendItem = (preItem: PreItem) => {
+    switch (preItem) {
+        case 'WithdrawAsset':
+            setStore([...store, { type: 'WithdrawAsset', value: [{ id: 'WND', amount: 0n }] }]);
+            setWhatever(1);
+            break;
+        case 'TeleportTransact':
+            setStore([...store, {
+                type: 'TeleportTransact',
+                value: {
+                    destination: 'Relay',
+                    assets: [{ id: 'WND', amount: 0n }],
+                    call: Binary.fromHex("")
+                }
+            }]);
+            break;
+    }
+}
+
+const withdrawSymbolToLocation: Record<'westendAssetHub', Record<string, Location>> = {
+    "westendAssetHub": {
+        "WND": { parents: 1, interior: XcmV3Junctions.Here() },
+        "USDC": { parents: 0, interior: XcmV3Junctions.X2([XcmV3Junction.PalletInstance(50), XcmV3Junction.GeneralIndex(1337n)]) },
+        "USDT": { parents: 0, interior: XcmV3Junctions.X2([XcmV3Junction.PalletInstance(50), XcmV3Junction.GeneralIndex(1984n)]) },
+    }
+}
+
+const transferNameToLocation: Record<'westendAssetHub', Record<Chain, Location>> = {
+    "westendAssetHub": {
+        "Relay": { parents: 1, interior: XcmV3Junctions.Here() },
+        "Hydration": { parents: 1, interior: XcmV3Junctions.X1(XcmV3Junction.Parachain(2034)) },
+        "Coretime": { parents: 1, interior: XcmV3Junctions.X1(XcmV3Junction.Parachain(1005)) },
+    }
+}
+
+const chainToWs: Record<'westendAssetHub', Record<Chain, string>> = {
+    'westendAssetHub': {
+        'Relay': 'wss://paseo.rpc.amforc.com',
+        'Coretime': '',
+        'Hydration': '',
+    }
+}
+
+const [loading, setLoading] = createSignal(false);
+const [success, setSuccess] = createSignal(false);
+
+const transformer = (items: Item[]) => {
+    const instructions = items.flatMap((item) => {
+        if (item.type === 'WithdrawAsset') {
+            return {
+                type: 'WithdrawAsset' as const,
+                value: item.value.map((asset) => assetTransformer(asset))
+            }
+        } else if (item.type === 'TeleportTransact') {
+            return [
+                XcmV4Instruction.WithdrawAsset(item.value.assets.map((asset) => assetTransformer(asset))),
+                Enum('PayFees', { asset: { ...assetTransformer(item.value.assets[0]), fun: XcmV3MultiassetFungibility.Fungible(2_000_000_000_000n) } }),
+                Enum('InitiateTransfer', {
+                    destination: transferNameToLocation['westendAssetHub'][item.value.destination],
+                    remote_fees: {
+                        type: 'Teleport',
+                        value: {
+                            type: 'Wild',
+                            value: {
+                                type: 'All',
+                                value: undefined,
+                            },
+                        },
+                    },
+                    preserve_origin: true,
+                    assets: [],
+                    remote_xcm: [
+                        {
+                            type: 'Transact',
+                            value: {
+                                origin_kind: XcmV2OriginKind.SovereignAccount(),
+                                call: Binary.fromHex(item.value.call),
+                            },
+                        },
+                    ],
+                }),
+            ];
+        }
+    });
+    const filteredInstructions = instructions.filter((item) => item !== undefined);
+    return filteredInstructions;
+}
+
+const assetTransformer = (asset: Asset): { id: Location, fun: XcmV3MultiassetFungibility } => {
+    return {
+        id: withdrawSymbolToLocation['westendAssetHub'][asset.id],
+        fun: XcmV3MultiassetFungibility.Fungible(asset.amount * 10n ** 12n)
+    }
+}
+
+const ItemCard: Component<{ index: number, item: Item }> = (props) => {
+    let Element;
+    if (props.item.type === 'WithdrawAsset') {
+        Element = <WithdrawAssetCard index={props.index} />;
+    } else if (props.item.type === 'TeleportTransact') {
+        Element = <InitiateTransferCard index={props.index} />;
+    }
+
+    return (
+        <Card class="w-[500px] mx-auto py-4 my-4">
+            <h2>{props.item.type}</h2>
+            {Element}
+        </Card>
+    );
+};
+
+const WithdrawAssetCard: Component<{ index: number }> = (props) => {
+    return <div class="w-2/3 mx-auto">
+        <Select 
+            placeholder="Select the asset"
+            options={["WND", "USDC", "USDT"]}
+            itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+            onChange={(asset: string | null) => {
+                setStore(
+                    (_, index) => index === props.index,
+                    'value',
+                    0,
+                    'id',
+                    asset as AssetId
+                );
+                setWhatever(1);
+            }}
+        >
+            <SelectTrigger>
+                <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
+            </SelectTrigger>
+            <SelectContent />
+        </Select>
+        <NumberField>
+            <NumberFieldLabel>Amount</NumberFieldLabel>
+            <NumberFieldInput onChange={(e) => {
+                setStore(
+                    (_, index) => index === props.index,
+                    'value',
+                    0,
+                    'amount',
+                    BigInt(e.currentTarget.value)
+                );
+                setWhatever(2);
+            }} />
+        </NumberField>
+    </div>;
+};
+
+const InitiateTransferCard: Component<{ index: number }> = (props) => {
+    return (
+        <div class="mx-auto w-2/3">
+            <Select 
+                class="mb-4"
+                placeholder="Select the destination chain"
+                options={["Relay", "Hydration", "Coretime"]}
+                itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+                onChange={(option: string | null) => {
+                    setStore(
+                        (item, index) => index === props.index && item.type === 'TeleportTransact',
+                        'value',
+                        'destination',
+                        option as Chain
+                    );
+                    setWhatever(3);
+                }}
+            >
+                <SelectTrigger>
+                    <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
+                </SelectTrigger>
+                <SelectContent />
+            </Select>
+            <Select
+                placeholder="Select the asset"
+                options={["WND", "USDC", "USDT"]}
+                itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
+                onChange={(option: string | null) => {
+                    setStore(
+                        (item, index) => index === props.index && item.type === 'TeleportTransact',
+                        'value',
+                        'assets',
+                        0,
+                        'id',
+                        option as AssetId
+                    );
+                    setWhatever(3);
+                }}
+            >
+                <SelectTrigger>
+                    <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
+                </SelectTrigger>
+                <SelectContent />
+            </Select>
+            <NumberField>
+                <NumberFieldLabel>Amount</NumberFieldLabel>
+                <NumberFieldInput onChange={(e) => {
+                    setStore(
+                        (_, index) => index === props.index,
+                        'value',
+                        'assets',
+                        0,
+                        'amount',
+                        BigInt(e.currentTarget.value)
+                    );
+                    setWhatever(2);
+                }} />
+            </NumberField>
+            <TextField class="mx-auto w-[240px]">
+                <TextFieldLabel>Call</TextFieldLabel>
+                <TextFieldInput onChange={(event) => {
+                    setStore(
+                        (item, index) => index === props.index && item.type === 'TeleportTransact',
+                        'value',
+                        'call',
+                        event.currentTarget.value
+                    );
+                    setWhatever(4);
+                }} />
+            </TextField>
+        </div>
+    );
+}
+
+const TransactCard: Component<{ index: number }> = (props) => {
+    return (
+        <TextField class="mx-auto w-[240px]">
+            <TextFieldLabel>Calldata</TextFieldLabel>
+            <TextFieldInput />
+        </TextField>
+    );
+}
+
+const [signer, setSigner] = createSignal<InjectedPolkadotAccount | undefined>(undefined);
+// const [encodedData, setEncodedData] = createSignal('');
 
 const connectWallet = async () => {
     // Get the list of installed extensions
@@ -35,41 +291,8 @@ const connectWallet = async () => {
     const accounts: InjectedPolkadotAccount[] = selectedExtension.getAccounts()
     console.log(accounts)
     // The signer for each account is in the `polkadotSigner` property of `InjectedPolkadotAccount`
-    setSigner(accounts[0].polkadotSigner)
+    setSigner(accounts[0])
 }
-
-export const appendInstruction = (newInstruction: string) => {
-    // let actualInstruction: XcmV4Instruction;
-    
-    // // TODO: Handle inputs & other instructions
-    // if (newInstruction === 'WithdrawAsset') {
-    //     actualInstruction = XcmV4Instruction.WithdrawAsset([]);
-    // } 
-    // else if (newInstruction === "InitiateTeleport") {
-    //     actualInstruction = XcmV4Instruction.InitiateTeleport({
-    //         assets: XcmV4AssetAssetFilter.Wild(XcmV4AssetWildAsset.All()),
-    //         dest: { parents: 1, interior: XcmV3Junctions.Here() },
-    //         xcm: []
-    //     })
-    // } 
-    // else if (newInstruction === "InitiateReserveWithdraw") {
-    //     actualInstruction = XcmV4Instruction.InitiateReserveWithdraw({
-    //         assets: XcmV4AssetAssetFilter.Wild(XcmV4AssetWildAsset.All()),
-    //         reserve: { parents: 1, interior: XcmV3Junctions.Here() },
-    //         xcm: []
-    //     })
-    // }
-    // else if (newInstruction === "InitiateTransfer") {
-    //     actualInstruction = Enum("InitiateTransfer", {}),
-    // }
-
-    setAppendedInstructionAsString((prev) => [...prev, newInstruction]);
-};
-
-const provider = getWsProvider("wss://westend-asset-hub-rpc.polkadot.io");
-const client: PolkadotClient = createClient(provider);
-// const dotApi = client.getTypedApi(dot)
-const wndAhApi = client.getTypedApi(wndah)
 
 const fetchBlockNumber = async (client: PolkadotClient) => {
     const finalizedBlock = await client.getFinalizedBlock();
@@ -84,158 +307,62 @@ const fetchChainName = async (client: PolkadotClient) => {
 }
 
 const submitXcm = async () => {
-    const msg = Enum("V5", [
-		XcmV4Instruction.WithdrawAsset([{
-			id: {
-                parents: 1,
-                interior: XcmV3Junctions.Here()
-            },
-			// fun: XcmV3MultiassetFungibility.Fungible(withdrawAssetParams().amount),
-			fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
-		}]),
-		Enum('PayFees', {
-			asset: {
-				id: {
-					parents: 1,
-					interior: XcmV3Junctions.Here(),
-				},
-				fun: XcmV3MultiassetFungibility.Fungible(1_500_000_000_000n),
-			}
-		}),
-		Enum('InitiateTransfer', {
-			destination: {
-				parents: 1,
-				interior: XcmV3Junctions.Here(),
-			},
-			remote_fees: Enum('Teleport', {
-				type: 'Definite',
-				value: [{
-					id: {
-						parents: 1,
-						interior: XcmV3Junctions.Here(),
-					},
-					// here need to put the cost/weight of remote xcm message.
-					fun: XcmV3MultiassetFungibility.Fungible(500_000_000_000n),
-				}],
-			}),
-			preserve_origin: false,
-			assets: [Enum('Teleport', {
-				type: 'Wild',
-				value: {
-					type: 'All',
-					value: undefined,
-				},
-			})],
-			remote_xcm: [
-				// XcmV4Instruction.DepositAsset({
-				// 	assets: XcmV4AssetAssetFilter.Definite([{
-				// 		id: { parents: 0, interior: XcmV3Junctions.Here() },
-				// 		fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-				// 	}]),
-				// 	beneficiary: {
-				// 		parents: 0,
-				// 		interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-				// 			network: undefined,
-				// 			id: Binary.fromBytes(signer()!.publicKey),
-				// 		})),
-				// 	},
-				// }),
-			],
-		}),
-	]);
-    
-	// const weight = await wndAHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
-	const wndAhToWnd = wndAhApi.tx.PolkadotXcm.execute({
-			message: msg,
-			// max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
-			max_weight: { ref_time: 72551079000n, proof_size: 629389n },
-		},
-	);
-    
-    const tx = await wndAhToWnd.signAndSubmit(signer()!)
+    const message = transformer(store);
+	const weight = await wndAhApi.apis.XcmPaymentApi.query_xcm_weight({ type: 'V5', value: message });
+    const wndAhToWnd = wndAhApi.tx.PolkadotXcm.execute({
+        message: { type: 'V5', value: message },
+        max_weight: weight.success ? weight.value : { ref_time: 0n, proof_size: 0n },
+    });
+    setLoading(true);
+    const tx = await wndAhToWnd.signAndSubmit(signer()!.polkadotSigner)
     console.log(tx)
 
-    // const result = await wndAHApi.apis.DryRunApi.dry_run_call(
-    //     PolkadotRuntimeOriginCaller.system(DispatchRawOrigin.Signed('5CSC3FKhsJZtxuKwLrsTn4PYC9KuXFQgqzpWQDRLaSEAWhaz')),
-    //     ahToWnd.decodedCall
-    // );
-    // const stringify = (obj: any): string => JSON.stringify(obj, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2);
-    // console.log(stringify(result));
+    const provider = "ws://localhost:8001";
+    const client = createClient(getWsProvider(provider));
+    const remoteApi = client.getTypedApi(wnd);
 
-    // const transaction = dotApi.tx.XcmPallet.execute({
-    //     message: XcmVersionedXcm.V4(currentInstructions().map((instruction) => instruction[1])),
-    //     max_weight: { ref_time: 1_000_000_000_000n, proof_size: 100_000n },
-    // });
-    // const transaction = wndAhApi.tx.PolkadotXcm.execute({
-    //     message: Enum('V5', []),
-    // });
-       
-    // const encodedData = await transaction.getEncodedData()
-    // setEncodedData(encodedData.asHex());
+    remoteApi.event.MessageQueue.Processed.watch().subscribe((event) => {
+        if (event.payload.success) {
+            setLoading(false);
+            setSuccess(true);
+        }
+    });
 }
 
 const [fees, setFees] = createSignal(0n);
 
 const dryRun = async () => {
-    const transaction = dotApi.tx.XcmPallet.execute({
-        message: XcmVersionedXcm.V4(currentInstructions().map((instruction) => instruction[1])),
-        max_weight: { ref_time: 1_000_000_000_000n, proof_size: 100_000n },
+    const message = transformer(store);
+    const weight = await wndAhApi.apis.XcmPaymentApi.query_xcm_weight({ type: 'V5', value: message });
+    const tx = wndAhApi.tx.PolkadotXcm.execute({
+        message: { type: 'V5', value: message },
+        max_weight: weight.success ? weight.value : { ref_time: 0n, proof_size: 0n },
     });
-    const result = await dotApi.apis.DryRunApi.dry_run_call(
-        PolkadotRuntimeOriginCaller.system(DispatchRawOrigin.Signed('5CSC3FKhsJZtxuKwLrsTn4PYC9KuXFQgqzpWQDRLaSEAWhaz')),
-        transaction.decodedCall
+    const result = await wndAhApi.apis.DryRunApi.dry_run_call(
+        Enum('system', DispatchRawOrigin.Signed('1NVBaamj5qNQSLTJVvTvDDh3mKZDYxpvVYzZWQh8XFghGUW')),
+        tx.decodedCall
     );
-    const stringify = (obj: any): string => JSON.stringify(obj, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2);
-    console.log(stringify(result));
-    const feesResult = await transaction.getEstimatedFees('5CSC3FKhsJZtxuKwLrsTn4PYC9KuXFQgqzpWQDRLaSEAWhaz');
-    // const weight = await dotApi.apis.XcmPaymentApi.query_xcm_weight(remoteMessage);
-    // const assetId = { parents: 1, interior: XcmV3Junctions.Here() };
-    // const remoteFee = await dotApi.apis.XcmPaymentApi.query_weight_to_asset_fee(weight, assetId);
-    setFees(feesResult);
-}
-
-const chains = {
-    "Polkadot Relay Chain": "polkadotrc",
-    "Polkadot Asset Hub": "polkadotah",
-    "Westend Relay Chain": "westendrc",
-    "Westend Asset Hub": "westendah",
-}
-
-const withdrawSymbolToLocation: Record<string, Record<string, string>> = {
-    "westendah": {
-        "DOT": `{"parents":"1","interior":"Here"}`,
-        "USDC": `{"parents":"0","interior":"Here"}`,
-        "USDT": `{"parents":"0","interior":"Here"}`,
+    if (result.success) {
+        const { forwarded_xcms: forwardedXcms } = result.value;
+        const [remoteLocation, remoteMessages] = forwardedXcms[0];
+        if (remoteMessages.length > 0) {
+            const remoteMessage = remoteMessages[0];
+            const provider = "ws://localhost:8001";
+            const client = createClient(getWsProvider(provider));
+            const remoteApi = client.getTypedApi(wnd);
+            const dryRunResult = await remoteApi.apis.DryRunApi.dry_run_xcm(
+                { type: 'V5', value: { parents: 0, interior: XcmV3Junctions.X1(XcmV3Junction.Parachain(1000)) } },
+                remoteMessage
+            );
+            console.log(stringify(dryRunResult));
+            const feesResult = await tx.getEstimatedFees('1NVBaamj5qNQSLTJVvTvDDh3mKZDYxpvVYzZWQh8XFghGUW');
+            // const weight = await dotApi.apis.XcmPaymentApi.query_xcm_weight(remoteMessage);
+            // const assetId = { parents: 1, interior: XcmV3Junctions.Here() };
+            // const remoteFee = await dotApi.apis.XcmPaymentApi.query_weight_to_asset_fee(weight, assetId);
+            setFees(feesResult);
+        }
     }
 }
-const mapWithdrawSymbolToLocation = (symbol: string) => {
-    withdrawAssetParams().asset = withdrawSymbolToLocation["westendah"][symbol]
-}
-type WithdrawAssetParams = {
-    asset: string,
-    amount: string
-}
-export const [withdrawAssetParams, setWithdrawAssetParams] = createSignal<WithdrawAssetParams>({asset: "", amount: ""});
-
-const transferNameToLocation: Record<string, Record<string, string>> = {
-    "westendah": {
-        "Polkadot Relay Chain": `{"parents":"1","interior":"Here"}`,
-        "Hydration": `{"parents":"1","interior":"Here"}`,
-        "Moonbeam": `{"parents":"1","interior":"Here"}`,
-    }
-}
-const mapTransferNameToLocation = (name: string) => {
-    initiateTransferParams().dest = transferNameToLocation["westendah"][name]
-}
-type InitiateTransferParams = {
-    dest: string
-}
-export const [initiateTransferParams, setInitiateTransferParams] = createSignal<InitiateTransferParams>({ dest: "" });
-
-type TransactParams = {
-    calldata: string
-}
-export const [transactParams, setTransactParams] = createSignal<TransactParams>({ calldata: "" });
 
 export const ChainInfo = () => {
     const [chainName] = createResource(client, fetchChainName);
@@ -265,91 +392,32 @@ export const ChainInfo = () => {
                     {/* <div>Finalized block: {finalizedBlockNumber()}</div> */}
                 </div>
                 <div class="my-4">
-                    <button 
+                    <Show when={signer()} fallback={(<button 
                         onclick={connectWallet}
                         class="bg-pink-500 text-white py-2 px-4 rounded"
                     >
                         Connect Wallet
-                    </button>
-                </div>
-                <Card class="w-[500px] mx-auto py-4 my-4">
-                    <ul class="list-none">
-                        <For each={currentInstructionsAsString()} fallback={<div class="py-2">Add your first XCM instruction</ div>}>
-                            {(instruction) => {
-                                return (
-                                <li class="py-2 rounded">
-                                    <div class="mx-auto">
-                                        <span>{`${instruction}`}</span>
-                                        {instruction === "WithdrawAsset" ? (
-                                            <TextField class="mx-auto w-[320px]">
-                                                {/* <TextFieldLabel>Asset ID</TextFieldLabel> */}
-                                                <Select 
-                                                    placeholder="Select the asset"
-                                                    options={["DOT", "USDC", "USDT"]}
-                                                    itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
-                                                    onChange={mapWithdrawSymbolToLocation}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
-                                                    </SelectTrigger>
-                                                    <SelectContent />
-                                                </Select>
-                                                <div>
-                                                    <TextFieldLabel>Amount</TextFieldLabel>
-                                                    <TextFieldInput />
-                                                </div>
-                                            </TextField>
-                                        ) : instruction === "InitiateTransfer" ? (
-                                            <TextField class="mx-auto w-[240px]">
-                                                <TextFieldLabel class="text-gray-400">{`(${transferType()})`}</TextFieldLabel>
-                                                <Select 
-                                                    placeholder="Select the destination chain"
-                                                    options={["Polkadot Relay Chain", "Hydration", "Moonbeam"]}
-                                                    itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
-                                                    onChange={mapTransferNameToLocation}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
-                                                    </SelectTrigger>
-                                                    <SelectContent />
-                                                </Select>
-                                            </TextField>
-                                        ) : instruction === "InitiateTeleport" ? (
-                                            <TextField class="mx-auto w-[240px]">
-                                                <Select 
-                                                    placeholder="Select the destination chain"
-                                                    options={["Polkadot Relay Chain", "Hydration", "Moonbeam"]}
-                                                    itemComponent={(props) => <SelectItem item={props.item}>{props.item.rawValue}</SelectItem>}
-                                                    onChange={mapTransferNameToLocation}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue<string>>{(state) => state.selectedOption()}</SelectValue>
-                                                    </SelectTrigger>
-                                                    <SelectContent />
-                                                </Select>
-                                            </TextField>
-                                        ) : instruction === "Transact" ? (
-                                            <TextField class="mx-auto w-[240px]">
-                                                <TextFieldLabel>Calldata</TextFieldLabel>
-                                                <TextFieldInput />
-                                            </TextField>
-                                        ) : ""}
-                                    </div>
-                                </li>)
-                                }}
-                        </For>
-                    </ul>
-                    <Show when={fees().toString() !== "0"} fallback={""} keyed>
-                        <div class="mt-2 text-sm">
-                            Estimated fees: <span class="font-light">{fees().toString()}</span>
-                        </div>
+                    </button>)} keyed>
+                        <p>{signer()?.address }</p>
                     </Show>
-                </Card>
-                <div class="flex flex-auto mx-auto justify-center py-2">
-                    <button class="bg-red-500 px-2 py-1 rounded mx-2" on:click={() => submitXcm()}>Submit</button>
-                    <button class="bg-gray-400 px-2 py-1 rounded" on:click={dryRun}>Dry run</button>
                 </div>
-                <div>Encoded data: {encodedData()}</div>
+                <For each={store} fallback={<div class="py-2">Add your first XCM instruction</ div>}>{(item, index) => (
+                    <ItemCard item={item} index={index()} />
+                )}</For>
+                <Show when={fees().toString() !== "0"} fallback={""} keyed>
+                    <div class="mt-2 text-sm">
+                        Estimated fees: <span class="font-light">{fees().toString()}</span>
+                    </div>
+                </Show>
+                <Show when={store.length > 0} fallback={""} keyed>
+                    <div class="flex flex-auto mx-auto justify-center py-2">
+                        <button class="bg-red-500 px-2 py-1 rounded mx-2" on:click={() => submitXcm()}>Submit</button>
+                        <button class="bg-gray-400 px-2 py-1 rounded" on:click={dryRun}>Dry run</button>
+                    </div>
+                    {loading() && <p>Loading</p>}
+                    {success() && <p>Success!</p>}
+                    {/* <div>Encoded data: {encodedData()}</div> */}
+                </Show>
             </Show>
         </div>
     )

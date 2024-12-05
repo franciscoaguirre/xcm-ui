@@ -2,21 +2,13 @@
   "version": 0,
   "descriptorPath": ".papi/descriptors",
   "entries": {
-    "dot": {
-      "chain": "polkadot",
-      "metadata": ".papi/metadata/dot.scale"
+    "wnd": {
+      "chain": "westend2",
+      "metadata": ".papi/metadata/wnd.scale"
     },
-    "ksm": {
-      "chain": "ksmcc3",
-      "metadata": ".papi/metadata/ksm.scale"
-    },
-    "wndah": {
+    "wndAh": {
       "chain": "westend2_asset_hub",
-      "metadata": ".papi/metadata/wndah.scale"
-    },
-    "pah": {
-      "chain": "paseo_asset_hub",
-      "metadata": ".papi/metadata/pah.scale"
+      "metadata": ".papi/metadata/wndAh.scale"
     }
   }
 }
